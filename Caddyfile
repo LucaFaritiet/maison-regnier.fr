@@ -1,0 +1,6 @@
+https://maison-regnier.freeboxos.fr {
+  encode zstd gzip
+  root * C:/Users/Drogause/Desktop/DEV/maison-regnier.fr/maison-regnier/dist
+  try_files {path} /index.html
+  file_server
+}

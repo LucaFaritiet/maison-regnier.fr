@@ -1,0 +1,1 @@
+huitres.png = "https://www.flaticon.com/fr/icones-gratuites/nourriture-et-restaurant"
