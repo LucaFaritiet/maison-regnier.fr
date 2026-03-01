@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import emailjs from "@emailjs/browser";
 import { EMAILJS_CONFIG, ADMIN_EMAIL } from "../config/emailConfig";
+import { validatePassword, validateResetCode } from "../utils/validation";
+import { resetCodeRateLimiter } from "../utils/rateLimiter";
 
 interface PasswordResetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onResetSuccess: (code: string, newPassword: string) => Promise<boolean>;
+  onResetSuccess: (code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: PasswordResetModalProps) {
@@ -32,6 +34,15 @@ export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: 
   }, [isOpen]);
 
   const sendCodeAutomatically = async () => {
+    const RATE_LIMIT_KEY = "send_reset_code";
+    
+    // Vérifier le rate limiting
+    const rateLimitCheck = resetCodeRateLimiter.canAttempt(RATE_LIMIT_KEY);
+    if (!rateLimitCheck.allowed) {
+      setError(`Trop de demandes. Réessayez dans ${Math.ceil(rateLimitCheck.remainingTime! / 60)} minutes`);
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setSuccess("");
@@ -60,6 +71,7 @@ export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: 
           EMAILJS_CONFIG.PUBLIC_KEY
         );
 
+        resetCodeRateLimiter.recordAttempt(RATE_LIMIT_KEY);
         setSuccess(`Code envoyé à ${ADMIN_EMAIL}. Vérifiez votre boîte mail.`);
       } catch (emailError) {
         console.error("EmailJS error:", emailError);
@@ -76,6 +88,13 @@ export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: 
   const handleVerifyCode = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Validation du code
+    const codeValidation = validateResetCode(code);
+    if (!codeValidation.valid) {
+      setError(codeValidation.error || "Code invalide");
+      return;
+    }
 
     const storedCode = localStorage.getItem("reset_code");
     const expiration = localStorage.getItem("reset_code_expiration");
@@ -108,8 +127,10 @@ export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: 
     e.preventDefault();
     setError("");
 
-    if (newPassword.length < 6) {
-      setError("Le mot de passe doit avoir au moins 6 caractères");
+    // Validation du nouveau mot de passe
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.error || "Mot de passe invalide");
       return;
     }
 
@@ -127,9 +148,9 @@ export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: 
         return;
       }
 
-      const success = await onResetSuccess(storedCode, newPassword);
+      const result = await onResetSuccess(storedCode, newPassword);
 
-      if (success) {
+      if (result.success) {
         // Nettoyer le code de réinitialisation
         localStorage.removeItem("reset_code");
         localStorage.removeItem("reset_code_expiration");
@@ -139,7 +160,7 @@ export default function PasswordResetModal({ isOpen, onClose, onResetSuccess }: 
           handleClose();
         }, 2000);
       } else {
-        setError("Erreur lors de la réinitialisation");
+        setError(result.error || "Erreur lors de la réinitialisation");
       }
     } catch (err) {
       setError("Erreur lors de la réinitialisation");

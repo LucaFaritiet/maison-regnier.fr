@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { validatePassword } from "../utils/validation";
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -28,13 +29,19 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
       return;
     }
 
+    const newPasswordValidation = validatePassword(newPassword);
+    if (!newPasswordValidation.valid) {
+      setError(newPasswordValidation.error || "Nouveau mot de passe invalide");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setError("Les nouveaux mots de passe ne correspondent pas");
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Le nouveau mot de passe doit avoir au moins 6 caractères");
+    if (oldPassword === newPassword) {
+      setError("Le nouveau mot de passe doit être différent de l'ancien");
       return;
     }
 
@@ -42,16 +49,18 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
 
     try {
       const result = await changePassword(oldPassword, newPassword);
-      if (result) {
+      if (result.success) {
         setSuccess("Mot de passe changé avec succès!");
         setTimeout(() => {
           setOldPassword("");
           setNewPassword("");
           setConfirmPassword("");
+          setError("");
+          setSuccess("");
           onClose();
         }, 1500);
       } else {
-        setError("Ancien mot de passe incorrect");
+        setError(result.error || "Erreur lors du changement de mot de passe");
       }
     } catch (err) {
       setError("Erreur lors du changement de mot de passe");

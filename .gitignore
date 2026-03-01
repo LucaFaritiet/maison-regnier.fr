@@ -16,8 +16,14 @@ lerna-debug.log*
 
 # Variables d'environnement et fichiers locaux
 *.local
+*.local.ts
+*.local.js
 .env
 .env.*
+
+# Configuration sensible
+src/config/emailConfig.local.ts
+src/contexts/authConfig.local.ts
 
 # Documentation temporaire
 DEMO.md

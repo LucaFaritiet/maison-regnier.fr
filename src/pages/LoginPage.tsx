@@ -19,11 +19,11 @@ export default function LoginPage() {
     setError("");
     
     try {
-      const success = await login(password);
-      if (success) {
+      const result = await login(password);
+      if (result.success) {
         navigate("/admin");
       } else {
-        setError("Mot de passe incorrect");
+        setError(result.error || "Mot de passe incorrect");
         setPassword("");
       }
     } catch (err) {
